@@ -28,15 +28,16 @@ namespace MailboxIntegration.Helpers
                         requestMessage.Headers.Authorization =
                             new AuthenticationHeaderValue("Bearer", accessToken);
                     }));
-
             return await graphClient.Me.Request().GetAsync();
         }
+
         public static async Task<IEnumerable<Message>> GetEventsAsync()
         {
             try
             {
                 var graphClient = GetAuthenticatedClient();
-                var events = await graphClient.Me.Messages.Request().GetAsync();
+                //var events = await graphClient.Me.Messages.Request().GetAsync();
+                var events = await graphClient.Me.MailFolders.Inbox.Messages.Request().Expand("attachments").GetAsync(); //Select("webLink,subject,hasAttachments,BodyPreview")
                 return events.CurrentPage;
             }
             catch (Exception ex)
@@ -44,10 +45,27 @@ namespace MailboxIntegration.Helpers
 
                 throw;
             }
-          
+
         }
 
-        public static AuthorizationCodeProvider getAuthProvider() {
+        public static async Task<IList<Attachment>> DownloadAttachments(string messageId)
+        {
+            try
+            {
+                var graphClient = GraphHelper.GetAuthenticatedClient();
+                var attachmentRequest = await graphClient.Me.MailFolders.Inbox.Messages[messageId].Request().Select("webLink,subject,hasAttachments,BodyPreview").Expand("attachments").GetAsync();
+                return attachmentRequest.Attachments.ToList();
+            }
+            catch (Exception ex)
+            {
+
+                throw;
+            }
+
+        }
+
+        public static AuthorizationCodeProvider getAuthProvider()
+        {
             var idClient = ConfidentialClientApplicationBuilder.Create(appId)
                         .WithRedirectUri(redirectUri)
                         .WithClientSecret(appSecret)
@@ -62,7 +80,7 @@ namespace MailboxIntegration.Helpers
             AuthorizationCodeProvider authenticationProvider = new AuthorizationCodeProvider(idClient, scopes);
             return authenticationProvider;
         }
-        private static GraphServiceClient GetAuthenticatedClient()
+        public static GraphServiceClient GetAuthenticatedClient()
         {
             try
             {
@@ -80,9 +98,9 @@ namespace MailboxIntegration.Helpers
 
                      var accounts = await idClient.GetAccountsAsync();
 
-                        // By calling this here, the token can be refreshed
-                        // if it's expired right before the Graph call is made
-                        var scopes = graphScopes.Split(' ');
+                     // By calling this here, the token can be refreshed
+                     // if it's expired right before the Graph call is made
+                     var scopes = graphScopes.Split(' ');
                      var result = await idClient.AcquireTokenSilent(scopes, accounts.FirstOrDefault())
                          .ExecuteAsync();
 
@@ -95,7 +113,7 @@ namespace MailboxIntegration.Helpers
 
                 throw;
             }
-         
+
         }
     }
 }
